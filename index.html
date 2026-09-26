@@ -316,27 +316,6 @@
 </head>
 <body>
 
-<div class="setup-screen" id="setupScreen" style="display:none">
-  <div class="setup-card">
-    <h1>وصّل التطبيق بقاعدة البيانات</h1>
-    <p>
-      عشان الأوردرات تبقى مشتركة بين كل الأجهزة في المحل، الصق هنا بيانات Firebase Config
-      اللي جبتها من Firebase Console (نسخة كاملة بالأقواس المجعدة). هتتحفظ مرة واحدة على هذا الجهاز فقط.
-    </p>
-    <textarea id="configInput" placeholder='{
-  "apiKey": "...",
-  "authDomain": "...",
-  "databaseURL": "https://your-project-default-rtdb.firebaseio.com",
-  "projectId": "...",
-  "storageBucket": "...",
-  "messagingSenderId": "...",
-  "appId": "..."
-}'></textarea>
-    <div class="setup-err" id="setupErr">الصيغة غير صحيحة، تأكد إنك ناسخ كل الكود بين الأقواس المجعدة { } كامل.</div>
-    <button id="setupSaveBtn">حفظ والدخول للتطبيق</button>
-  </div>
-</div>
-
 <div id="appRoot" style="display:none">
 <header class="top">
   <div class="brand">🍯 سجل التوصيل <small>لوحة تشغيل الدليفري</small></div>
@@ -378,18 +357,21 @@ let orders = [];
 let editingId = null;
 
 /* ===================== تخزين عبر Firebase ===================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBK-wUV7EejA79qfIIqC6DIt4uFj5BPphw",
+  authDomain: "sweet-home-delivery-49a54.firebaseapp.com",
+  databaseURL: "https://sweet-home-delivery-49a54-default-rtdb.firebaseio.com",
+  projectId: "sweet-home-delivery-49a54",
+  storageBucket: "sweet-home-delivery-49a54.firebasestorage.app",
+  messagingSenderId: "953154612051",
+  appId: "1:953154612051:web:04005f1c23fb5590aa0fa6"
+};
+
 let db = null;
 let ordersRef = null;
 
-function getSavedConfig(){
-  try{
-    const raw = localStorage.getItem('firebaseConfig');
-    return raw ? JSON.parse(raw) : null;
-  }catch(e){ return null; }
-}
-
-function initFirebase(config){
-  firebase.initializeApp(config);
+function initFirebase(){
+  firebase.initializeApp(firebaseConfig);
   db = firebase.database();
   ordersRef = db.ref('orders-list');
 
@@ -403,15 +385,8 @@ function initFirebase(config){
 }
 
 async function loadOrders(){
-  const config = getSavedConfig();
-  if(!config){
-    document.getElementById('setupScreen').style.display = 'flex';
-    document.getElementById('appRoot').style.display = 'none';
-    return;
-  }
-  document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('appRoot').style.display = 'block';
-  initFirebase(config);
+  initFirebase();
 }
 
 async function saveOrders(){
@@ -425,21 +400,6 @@ async function saveOrders(){
     showToast('تعذر حفظ البيانات، تحقق من الإنترنت');
   }
 }
-
-/* شاشة إعداد Firebase */
-document.getElementById('setupSaveBtn').addEventListener('click', ()=>{
-  const raw = document.getElementById('configInput').value.trim();
-  const errBox = document.getElementById('setupErr');
-  try{
-    const config = JSON.parse(raw);
-    if(!config.databaseURL || !config.apiKey) throw new Error('missing fields');
-    localStorage.setItem('firebaseConfig', JSON.stringify(config));
-    errBox.style.display = 'none';
-    loadOrders();
-  }catch(e){
-    errBox.style.display = 'block';
-  }
-});
 
 function showToast(msg){
   const t = document.getElementById('toast');
