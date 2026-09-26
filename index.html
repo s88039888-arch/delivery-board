@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>سجل التوصيل</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#C1683F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="سجل التوصيل">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --cream: #FBF6EE;
+    --cream-deep: #F3E9D8;
+    --paper: #FFFDF9;
+    --ink: #3B2A1E;
+    --ink-soft: #7A6653;
+    --line: #E7D9C4;
+    --clay: #C1683F;
+    --clay-deep: #A2502D;
+    --clay-pale: #F3DAC8;
+    --olive: #6C7A4A;
+    --olive-pale: #E3E9D3;
+    --honey: #C9932A;
+    --honey-pale: #F6E6C2;
+    --berry: #9C3B47;
+    --berry-pale: #F2D8DA;
+    --shadow: 0 1px 2px rgba(59,42,30,0.06), 0 4px 14px rgba(59,42,30,0.07);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--cream);
+    background-image:
+      radial-gradient(circle at 8% 8%, rgba(193,104,63,0.05), transparent 40%),
+      radial-gradient(circle at 95% 85%, rgba(108,122,74,0.06), transparent 40%);
+    color: var(--ink);
+    font-family: 'Tajawal', 'Cairo', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background: var(--clay-pale); }
+
+  /* ===== Header ===== */
+  header.top{
+    position: sticky; top:0; z-index:40;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:10px;
+    font-weight:900; font-size:1.35rem; color:var(--clay-deep);
+    letter-spacing:-0.5px;
+  }
+  .brand small{
+    font-weight:500; font-size:0.78rem; color:var(--ink-soft);
+    letter-spacing:0;
+  }
+  .top-stats{
+    display:flex; gap:10px; margin-inline-start:auto; flex-wrap:wrap;
+  }
+  .stat-chip{
+    background: var(--cream-deep);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:6px 14px;
+    font-size:0.82rem;
+    display:flex; align-items:center; gap:8px;
+    color: var(--ink-soft);
+  }
+  .stat-chip b{ color:var(--ink); font-size:1.05rem; font-weight:700; }
+  .stat-chip.warn{ background: var(--honey-pale); border-color:#e6cf8f; }
+  .stat-chip.warn b{ color:#7a5c14; }
+  .stat-chip.debt{ background: var(--berry-pale); border-color:#e0b3b8; }
+  .stat-chip.debt b{ color:var(--berry); }
+
+  .btn-new{
+    background: var(--clay);
+    color: var(--paper);
+    border:none; border-radius:10px;
+    padding:11px 22px;
+    font-family:inherit; font-weight:700; font-size:0.95rem;
+    cursor:pointer;
+    box-shadow: var(--shadow);
+    transition: transform .12s ease, background .15s ease;
+  }
+  .btn-new:hover{ background: var(--clay-deep); transform: translateY(-1px); }
+  .btn-new:active{ transform: translateY(0); }
+
+  /* ===== Toolbar ===== */
+  .toolbar{
+    display:flex; gap:10px; padding:14px 20px 6px; flex-wrap:wrap; align-items:center;
+  }
+  .search-box{
+    flex:1; min-width:180px;
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:9px 14px;
+    font-family:inherit; font-size:0.92rem; color:var(--ink);
+  }
+  .search-box:focus{ outline:2px solid var(--clay-pale); border-color:var(--clay); }
+  .sort-select{
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:9px 12px;
+    font-family:inherit; font-size:0.88rem; color:var(--ink-soft);
+  }
+
+  /* ===== Board ===== */
+  main.board{
+    display:grid;
+    grid-template-columns: repeat(5, minmax(240px,1fr));
+    gap:14px;
+    padding: 12px 20px 40px;
+    overflow-x:auto;
+    align-items:start;
+  }
+  @media (max-width: 1100px){
+    main.board{ grid-template-columns: repeat(5, 82vw); }
+  }
+  .column{
+    background: rgba(255,253,249,0.6);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:12px;
+    min-height:160px;
+  }
+  .col-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:4px 6px 12px;
+    border-bottom: 2px solid var(--col-color, var(--clay));
+    margin-bottom:10px;
+  }
+  .col-head h2{
+    margin:0; font-size:0.98rem; font-weight:700; color:var(--ink);
+  }
+  .col-head .count{
+    background: var(--col-color, var(--clay));
+    color:#fff; border-radius:20px; font-size:0.76rem; font-weight:700;
+    padding:2px 9px; min-width:22px; text-align:center;
+  }
+  .col-empty{
+    text-align:center; color:var(--ink-soft); font-size:0.85rem;
+    padding: 30px 10px; opacity:0.75;
+  }
+
+  /* order card */
+  .order-card{
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 13px;
+    margin-bottom:10px;
+    box-shadow: var(--shadow);
+    cursor:pointer;
+    border-inline-start: 4px solid var(--col-color, var(--clay));
+    transition: transform .1s ease;
+    position:relative;
+  }
+  .order-card:hover{ transform: translateY(-1px); }
+  .order-card.urgent::before{
+    content:"";
+    position:absolute; top:9px; left:9px;
+    width:8px; height:8px; border-radius:50%;
+    background: var(--berry);
+    box-shadow: 0 0 0 3px var(--berry-pale);
+  }
+  .oc-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:6px; }
+  .oc-num{ font-weight:900; color:var(--clay-deep); font-size:1.02rem; }
+  .oc-time{ font-size:0.74rem; color:var(--ink-soft); white-space:nowrap; }
+  .oc-name{ font-weight:700; margin-top:2px; font-size:0.94rem; }
+  .oc-addr{ font-size:0.8rem; color:var(--ink-soft); margin-top:2px; line-height:1.4; }
+  .oc-items{ font-size:0.8rem; color:var(--ink); margin-top:6px; line-height:1.5; }
+  .oc-foot{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:9px; padding-top:8px; border-top:1px dashed var(--line);
+  }
+  .oc-total{ font-weight:700; font-size:0.9rem; }
+  .oc-pay{
+    font-size:0.72rem; font-weight:700; padding:2px 9px; border-radius:20px;
+  }
+  .oc-pay.paid{ background: var(--olive-pale); color:#3f4a29; }
+  .oc-pay.unpaid{ background: var(--berry-pale); color:var(--berry); }
+  .oc-pay.partial{ background: var(--honey-pale); color:#7a5c14; }
+  .oc-courier{
+    margin-top:6px; font-size:0.76rem; color:var(--clay-deep);
+    display:flex; align-items:center; gap:5px;
+  }
+  .oc-actions{
+    display:flex; gap:6px; margin-top:9px;
+  }
+  .oc-actions button{
+    flex:1; border:1px solid var(--line); background:var(--cream-deep);
+    border-radius:8px; padding:7px 4px; font-family:inherit;
+    font-size:0.76rem; font-weight:700; color:var(--ink); cursor:pointer;
+  }
+  .oc-actions button.primary{ background: var(--clay); color:#fff; border-color:var(--clay); }
+  .oc-actions button.primary:hover{ background: var(--clay-deep); }
+  .oc-actions button:hover{ background: var(--cream); }
+
+  /* ===== Modal ===== */
+  .overlay{
+    position:fixed; inset:0; background: rgba(59,42,30,0.35);
+    display:none; align-items:center; justify-content:center; z-index:100;
+    padding:16px;
+  }
+  .overlay.open{ display:flex; }
+  .modal{
+    background: var(--paper);
+    border-radius:16px;
+    max-width:560px; width:100%;
+    max-height:88vh; overflow-y:auto;
+    padding:26px 26px 22px;
+    box-shadow: 0 20px 60px rgba(59,42,30,0.25);
+  }
+  .modal h3{
+    margin:0 0 18px; font-size:1.25rem; font-weight:900; color:var(--clay-deep);
+  }
+  .field{ margin-bottom:14px; }
+  .field label{
+    display:block; font-size:0.82rem; font-weight:700; color:var(--ink-soft); margin-bottom:5px;
+  }
+  .field input, .field textarea, .field select{
+    width:100%; font-family:inherit; font-size:0.92rem; color:var(--ink);
+    border:1px solid var(--line); border-radius:9px; padding:9px 12px;
+    background: var(--cream);
+  }
+  .field input:focus, .field textarea:focus, .field select:focus{
+    outline:2px solid var(--clay-pale); border-color:var(--clay); background:var(--paper);
+  }
+  .field textarea{ resize:vertical; min-height:64px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .items-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .item-row{ display:flex; gap:8px; }
+  .item-row input:first-child{ flex:2; }
+  .item-row input:last-child{ flex:1; }
+  .item-row button{
+    background:none; border:none; color:var(--berry); font-size:1.2rem; cursor:pointer; padding:0 6px;
+  }
+  .add-item-btn{
+    background:none; border:1px dashed var(--line); border-radius:8px;
+    padding:7px; width:100%; font-family:inherit; color:var(--ink-soft);
+    font-size:0.82rem; cursor:pointer; margin-bottom:14px;
+  }
+  .add-item-btn:hover{ border-color:var(--clay); color:var(--clay-deep); }
+  .modal-actions{
+    display:flex; gap:10px; margin-top:18px;
+  }
+  .modal-actions button{
+    flex:1; border:none; border-radius:10px; padding:12px; font-family:inherit;
+    font-weight:700; font-size:0.94rem; cursor:pointer;
+  }
+  .modal-actions .save{ background: var(--clay); color:#fff; }
+  .modal-actions .save:hover{ background: var(--clay-deep); }
+  .modal-actions .cancel{ background: var(--cream-deep); color:var(--ink-soft); }
+  .modal-actions .danger{ background:none; color:var(--berry); border:1px solid var(--berry-pale); flex:0.6; }
+  .modal-actions .danger:hover{ background: var(--berry-pale); }
+  .close-x{
+    position:absolute; top:16px; left:16px; background:none; border:none;
+    font-size:1.3rem; color:var(--ink-soft); cursor:pointer; line-height:1;
+  }
+  .modal{ position:relative; }
+
+  .loading, .empty-state{
+    text-align:center; padding:60px 20px; color:var(--ink-soft);
+  }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background: var(--ink); color:var(--cream);
+    padding:11px 22px; border-radius:10px; font-size:0.88rem;
+    opacity:0; transition: all .25s ease; z-index:200; pointer-events:none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar{ height:8px; width:8px; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); border-radius:8px; }
+
+  /* ===== شاشة إعداد الاتصال ===== */
+  .setup-screen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .setup-card{
+    background: var(--paper); border:1px solid var(--line); border-radius:16px;
+    max-width:520px; width:100%; padding:30px 28px; box-shadow: var(--shadow);
+  }
+  .setup-card h1{ font-size:1.3rem; margin:0 0 8px; color:var(--clay-deep); }
+  .setup-card p{ font-size:0.88rem; color:var(--ink-soft); line-height:1.7; margin:0 0 18px; }
+  .setup-card textarea{
+    width:100%; min-height:140px; font-family: monospace; font-size:0.82rem;
+    border:1px solid var(--line); border-radius:10px; padding:12px; background: var(--cream);
+    direction:ltr; text-align:left;
+  }
+  .setup-card textarea:focus{ outline:2px solid var(--clay-pale); border-color:var(--clay); }
+  .setup-card .setup-err{ color:var(--berry); font-size:0.82rem; margin-top:8px; display:none; }
+  .setup-card button{
+    margin-top:16px; width:100%; background: var(--clay); color:#fff; border:none;
+    border-radius:10px; padding:12px; font-family:inherit; font-weight:700; font-size:0.94rem;
+    cursor:pointer;
+  }
+  .setup-card button:hover{ background: var(--clay-deep); }
+</style>
+</head>
+<body>
+
+<div class="setup-screen" id="setupScreen" style="display:none">
+  <div class="setup-card">
+    <h1>وصّل التطبيق بقاعدة البيانات</h1>
+    <p>
+      عشان الأوردرات تبقى مشتركة بين كل الأجهزة في المحل، الصق هنا بيانات Firebase Config
+      اللي جبتها من Firebase Console (نسخة كاملة بالأقواس المجعدة). هتتحفظ مرة واحدة على هذا الجهاز فقط.
+    </p>
+    <textarea id="configInput" placeholder='{
+  "apiKey": "...",
+  "authDomain": "...",
+  "databaseURL": "https://your-project-default-rtdb.firebaseio.com",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'></textarea>
+    <div class="setup-err" id="setupErr">الصيغة غير صحيحة، تأكد إنك ناسخ كل الكود بين الأقواس المجعدة { } كامل.</div>
+    <button id="setupSaveBtn">حفظ والدخول للتطبيق</button>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none">
+<header class="top">
+  <div class="brand">🍯 سجل التوصيل <small>لوحة تشغيل الدليفري</small></div>
+  <div class="top-stats" id="topStats"></div>
+  <button class="btn-new" id="btnNewOrder">+ أوردر جديد</button>
+</header>
+
+<div class="toolbar">
+  <input type="text" class="search-box" id="searchBox" placeholder="ابحث باسم الزبون، رقم الهاتف، أو رقم الأوردر...">
+  <select class="sort-select" id="sortSelect">
+    <option value="priority">ترتيب حسب الأسبقية</option>
+    <option value="newest">الأحدث أولاً</option>
+    <option value="oldest">الأقدم أولاً</option>
+  </select>
+</div>
+
+<main class="board" id="board">
+  <div class="loading">جاري تحميل الأوردرات...</div>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ===================== إعداد عام ===================== */
+const STAGES = [
+  {key:'new', label:'جديد', color:'#C1683F'},
+  {key:'prep', label:'قيد التجهيز', color:'#C9932A'},
+  {key:'ready', label:'جاهز للتوصيل', color:'#6C7A4A'},
+  {key:'out', label:'في الطريق', color:'#3B7A9C'},
+  {key:'done', label:'تم التسليم', color:'#7A6653'},
+];
+
+let orders = [];
+let editingId = null;
+
+/* ===================== تخزين عبر Firebase ===================== */
+let db = null;
+let ordersRef = null;
+
+function getSavedConfig(){
+  try{
+    const raw = localStorage.getItem('firebaseConfig');
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+
+function initFirebase(config){
+  firebase.initializeApp(config);
+  db = firebase.database();
+  ordersRef = db.ref('orders-list');
+
+  ordersRef.on('value', (snapshot)=>{
+    const data = snapshot.val();
+    orders = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+    render();
+  }, (err)=>{
+    showToast('تعذر الاتصال بقاعدة البيانات، تحقق من الإنترنت');
+  });
+}
+
+async function loadOrders(){
+  const config = getSavedConfig();
+  if(!config){
+    document.getElementById('setupScreen').style.display = 'flex';
+    document.getElementById('appRoot').style.display = 'none';
+    return;
+  }
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('appRoot').style.display = 'block';
+  initFirebase(config);
+}
+
+async function saveOrders(){
+  if(!ordersRef){
+    showToast('التطبيق غير متصل بقاعدة البيانات');
+    return;
+  }
+  try{
+    await ordersRef.set(orders);
+  }catch(e){
+    showToast('تعذر حفظ البيانات، تحقق من الإنترنت');
+  }
+}
+
+/* شاشة إعداد Firebase */
+document.getElementById('setupSaveBtn').addEventListener('click', ()=>{
+  const raw = document.getElementById('configInput').value.trim();
+  const errBox = document.getElementById('setupErr');
+  try{
+    const config = JSON.parse(raw);
+    if(!config.databaseURL || !config.apiKey) throw new Error('missing fields');
+    localStorage.setItem('firebaseConfig', JSON.stringify(config));
+    errBox.style.display = 'none';
+    loadOrders();
+  }catch(e){
+    errBox.style.display = 'block';
+  }
+});
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+/* ===================== أدوات مساعدة ===================== */
+function nextOrderNumber(){
+  const nums = orders.map(o => o.num || 0);
+  return (nums.length ? Math.max(...nums) : 1000) + 1;
+}
+
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'});
+}
+
+function fmtWaitMinutes(ts){
+  const diffMs = Date.now() - ts;
+  const mins = Math.floor(diffMs/60000);
+  if(mins < 1) return 'الآن';
+  if(mins < 60) return `منذ ${mins} د`;
+  const h = Math.floor(mins/60);
+  const m = mins % 60;
+  return `منذ ${h}س ${m}د`;
+}
+
+function itemsTotal(items){
+  return items.reduce((sum, it) => sum + (Number(it.price)||0) * (Number(it.qty)||1), 0);
+}
+
+function orderTotal(order){
+  return itemsTotal(order.items) + (Number(order.deliveryFee)||0);
+}
+
+function paidStatus(order){
+  const total = orderTotal(order);
+  const paid = Number(order.paidAmount)||0;
+  if(paid <= 0) return 'unpaid';
+  if(paid >= total) return 'paid';
+  return 'partial';
+}
+
+function stageColor(key){
+  return (STAGES.find(s=>s.key===key)||{}).color || '#C1683F';
+}
+
+/* ===================== عرض اللوحة ===================== */
+function render(){
+  const board = document.getElementById('board');
+  const search = (document.getElementById('searchBox').value || '').trim().toLowerCase();
+  const sortMode = document.getElementById('sortSelect').value;
+
+  let filtered = orders.filter(o=>{
+    if(!search) return true;
+    return (o.customerName||'').toLowerCase().includes(search)
+      || (o.phone||'').includes(search)
+      || String(o.num).includes(search)
+      || (o.address||'').toLowerCase().includes(search);
+  });
+
+  board.innerHTML = '';
+
+  STAGES.forEach(stage=>{
+    let colOrders = filtered.filter(o=>o.stage===stage.key);
+
+    if(sortMode === 'newest'){
+      colOrders.sort((a,b)=> b.createdAt - a.createdAt);
+    }else{
+      // priority = الأقدم أولاً دائماً (أسبقية الحجز)، نفس منطق "oldest"
+      colOrders.sort((a,b)=> a.createdAt - b.createdAt);
+    }
+
+    const col = document.createElement('div');
+    col.className = 'column';
+    col.style.setProperty('--col-color', stage.color);
+
+    const head = document.createElement('div');
+    head.className = 'col-head';
+    head.innerHTML = `<h2>${stage.label}</h2><span class="count">${colOrders.length}</span>`;
+    col.appendChild(head);
+
+    if(colOrders.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'col-empty';
+      empty.textContent = stage.key==='new' ? 'لا أوردرات جديدة' : 'لا يوجد شيء هنا';
+      col.appendChild(empty);
+    }else{
+      colOrders.forEach(o => col.appendChild(renderCard(o, stage)));
+    }
+
+    board.appendChild(col);
+  });
+
+  renderTopStats();
+}
+
+function renderCard(order, stage){
+  const card = document.createElement('div');
+  const waitMins = Math.floor((Date.now()-order.createdAt)/60000);
+  const isUrgent = order.stage !== 'done' && waitMins >= 45;
+  card.className = 'order-card' + (isUrgent ? ' urgent' : '');
+  card.style.setProperty('--col-color', stage.color);
+
+  const total = orderTotal(order);
+  const pay = paidStatus(order);
+  const payLabel = pay==='paid' ? 'مدفوع' : pay==='partial' ? 'دفع جزئي' : 'غير مدفوع';
+
+  const itemsText = (order.items||[]).map(it => `${it.name} ×${it.qty||1}`).join('، ');
+
+  card.innerHTML = `
+    <div class="oc-top">
+      <span class="oc-num">#${order.num}</span>
+      <span class="oc-time">${fmtTime(order.createdAt)} · ${fmtWaitMinutes(order.createdAt)}</span>
+    </div>
+    <div class="oc-name">${escapeHtml(order.customerName || 'بدون اسم')}</div>
+    ${order.address ? `<div class="oc-addr">📍 ${escapeHtml(order.address)}</div>` : ''}
+    ${itemsText ? `<div class="oc-items">${escapeHtml(itemsText)}</div>` : ''}
+    ${order.courier ? `<div class="oc-courier">🛵 ${escapeHtml(order.courier)}</div>` : ''}
+    <div class="oc-foot">
+      <span class="oc-total">${total.toFixed(0)} ج.م</span>
+      <span class="oc-pay ${pay}">${payLabel}</span>
+    </div>
+    <div class="oc-actions" data-actions></div>
+  `;
+
+  const actionsDiv = card.querySelector('[data-actions]');
+  const idx = STAGES.findIndex(s=>s.key===stage.key);
+
+  if(stage.key !== 'done'){
+    const nextStage = STAGES[idx+1];
+    const advanceBtn = document.createElement('button');
+    advanceBtn.className = 'primary';
+    advanceBtn.textContent = nextStage ? `→ ${nextStage.label}` : 'إنهاء';
+    advanceBtn.onclick = (e)=>{ e.stopPropagation(); advanceOrder(order.id); };
+    actionsDiv.appendChild(advanceBtn);
+  }
+
+  const editBtn = document.createElement('button');
+  editBtn.textContent = 'تفاصيل';
+  editBtn.onclick = (e)=>{ e.stopPropagation(); openEditModal(order.id); };
+  actionsDiv.appendChild(editBtn);
+
+  card.onclick = ()=> openEditModal(order.id);
+
+  return card;
+}
+
+function renderTopStats(){
+  const active = orders.filter(o=>o.stage!=='done');
+  const unpaidCount = orders.filter(o=> paidStatus(o) !== 'paid').length;
+  const unpaidSum = orders.filter(o=> paidStatus(o) !== 'paid')
+    .reduce((s,o)=> s + (orderTotal(o) - (Number(o.paidAmount)||0)), 0);
+  const urgentCount = orders.filter(o=> o.stage!=='done' && Math.floor((Date.now()-o.createdAt)/60000) >= 45).length;
+
+  const el = document.getElementById('topStats');
+  el.innerHTML = `
+    <div class="stat-chip">أوردرات نشطة <b>${active.length}</b></div>
+    <div class="stat-chip debt">مبالغ مستحقة <b>${unpaidSum.toFixed(0)} ج.م</b></div>
+    ${urgentCount>0 ? `<div class="stat-chip warn">متأخرة <b>${urgentCount}</b></div>` : ''}
+  `;
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ===================== إجراءات الأوردر ===================== */
+function advanceOrder(id){
+  const order = orders.find(o=>o.id===id);
+  if(!order) return;
+  const idx = STAGES.findIndex(s=>s.key===order.stage);
+  if(idx < STAGES.length-1){
+    order.stage = STAGES[idx+1].key;
+    if(order.stage === 'done') order.deliveredAt = Date.now();
+    saveOrders();
+    render();
+    showToast(`الأوردر #${order.num} انتقل إلى "${STAGES[idx+1].label}"`);
+  }
+}
+
+function deleteOrder(id){
+  orders = orders.filter(o=>o.id!==id);
+  saveOrders();
+  render();
+  closeModal();
+  showToast('تم حذف الأوردر');
+}
+
+/* ===================== المودال: إضافة / تعديل ===================== */
+function openNewModal(){
+  editingId = null;
+  renderModal({
+    num: nextOrderNumber(),
+    customerName:'', phone:'', address:'',
+    items:[{name:'', qty:1, price:''}],
+    deliveryFee:'', paidAmount:'', courier:'', notes:'',
+    stage:'new', createdAt: Date.now()
+  }, true);
+  openOverlay();
+}
+
+function openEditModal(id){
+  const order = orders.find(o=>o.id===id);
+  if(!order) return;
+  editingId = id;
+  renderModal(order, false);
+  openOverlay();
+}
+
+function openOverlay(){ document.getElementById('overlay').classList.add('open'); }
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); editingId=null; }
+
+function renderModal(order, isNew){
+  const modal = document.getElementById('modalContent');
+  const items = order.items && order.items.length ? order.items : [{name:'',qty:1,price:''}];
+
+  modal.innerHTML = `
+    <button class="close-x" id="closeX">✕</button>
+    <h3>${isNew ? 'أوردر جديد' : 'أوردر #'+order.num}</h3>
+
+    <div class="row2">
+      <div class="field">
+        <label>اسم الزبون</label>
+        <input type="text" id="f_name" value="${attr(order.customerName)}" placeholder="اسم الزبون">
+      </div>
+      <div class="field">
+        <label>رقم الهاتف</label>
+        <input type="tel" id="f_phone" value="${attr(order.phone)}" placeholder="01xxxxxxxxx">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>العنوان</label>
+      <textarea id="f_address" placeholder="العنوان بالتفصيل">${order.address||''}</textarea>
+    </div>
+
+    <div class="field">
+      <label>الأصناف</label>
+      <div class="items-list" id="itemsList"></div>
+      <button type="button" class="add-item-btn" id="addItemBtn">+ إضافة صنف</button>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>رسوم التوصيل (ج.م)</label>
+        <input type="number" id="f_delivery" value="${attr(order.deliveryFee)}" placeholder="0">
+      </div>
+      <div class="field">
+        <label>المبلغ المدفوع (ج.م)</label>
+        <input type="number" id="f_paid" value="${attr(order.paidAmount)}" placeholder="0">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>المرحلة</label>
+        <select id="f_stage">
+          ${STAGES.map(s=>`<option value="${s.key}" ${s.key===order.stage?'selected':''}>${s.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>اسم عامل التوصيل</label>
+        <input type="text" id="f_courier" value="${attr(order.courier)}" placeholder="اختياري">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>ملاحظات</label>
+      <textarea id="f_notes" placeholder="ملاحظات إضافية">${order.notes||''}</textarea>
+    </div>
+
+    <div class="modal-actions">
+      ${!isNew ? `<button type="button" class="danger" id="deleteBtn">حذف</button>` : ''}
+      <button type="button" class="cancel" id="cancelBtn">إلغاء</button>
+      <button type="button" class="save" id="saveBtn">${isNew ? 'إنشاء الأوردر' : 'حفظ التعديلات'}</button>
+    </div>
+  `;
+
+  const itemsList = document.getElementById('itemsList');
+  function renderItemRows(itemsArr){
+    itemsList.innerHTML = '';
+    itemsArr.forEach((it, i)=>{
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <input type="text" placeholder="اسم الصنف" value="${attr(it.name)}" data-field="name" data-i="${i}">
+        <input type="number" placeholder="السعر" value="${attr(it.price)}" data-field="price" data-i="${i}">
+        <button type="button" data-remove="${i}">✕</button>
+      `;
+      itemsList.appendChild(row);
+    });
+  }
+  let currentItems = items.map(it=>({name:it.name||'', qty:it.qty||1, price:it.price||''}));
+  renderItemRows(currentItems);
+
+  itemsList.addEventListener('input', (e)=>{
+    const i = e.target.getAttribute('data-i');
+    const field = e.target.getAttribute('data-field');
+    if(i!==null && field){ currentItems[i][field] = e.target.value; }
+  });
+  itemsList.addEventListener('click', (e)=>{
+    const rem = e.target.getAttribute('data-remove');
+    if(rem!==null){
+      currentItems.splice(Number(rem),1);
+      if(currentItems.length===0) currentItems.push({name:'',qty:1,price:''});
+      renderItemRows(currentItems);
+    }
+  });
+
+  document.getElementById('addItemBtn').onclick = ()=>{
+    currentItems.push({name:'', qty:1, price:''});
+    renderItemRows(currentItems);
+  };
+
+  document.getElementById('closeX').onclick = closeModal;
+  document.getElementById('cancelBtn').onclick = closeModal;
+
+  if(!isNew){
+    document.getElementById('deleteBtn').onclick = ()=>{
+      if(confirm(`هل تريد حذف الأوردر #${order.num}؟`)) deleteOrder(order.id);
+    };
+  }
+
+  document.getElementById('saveBtn').onclick = ()=>{
+    const name = document.getElementById('f_name').value.trim();
+    if(!name){
+      showToast('من فضلك أدخل اسم الزبون');
+      return;
+    }
+    const cleanItems = currentItems
+      .filter(it=> it.name.trim() !== '')
+      .map(it=> ({name: it.name.trim(), qty: Number(it.qty)||1, price: Number(it.price)||0}));
+
+    const payload = {
+      id: isNew ? 'o_' + Date.now() + '_' + Math.random().toString(36).slice(2,7) : order.id,
+      num: order.num,
+      customerName: name,
+      phone: document.getElementById('f_phone').value.trim(),
+      address: document.getElementById('f_address').value.trim(),
+      items: cleanItems,
+      deliveryFee: Number(document.getElementById('f_delivery').value)||0,
+      paidAmount: Number(document.getElementById('f_paid').value)||0,
+      courier: document.getElementById('f_courier').value.trim(),
+      notes: document.getElementById('f_notes').value.trim(),
+      stage: document.getElementById('f_stage').value,
+      createdAt: order.createdAt,
+      deliveredAt: order.deliveredAt || null
+    };
+
+    if(payload.stage === 'done' && !payload.deliveredAt) payload.deliveredAt = Date.now();
+
+    if(isNew){
+      orders.push(payload);
+      showToast(`تم إنشاء الأوردر #${payload.num}`);
+    }else{
+      const i = orders.findIndex(o=>o.id===order.id);
+      orders[i] = payload;
+      showToast('تم حفظ التعديلات');
+    }
+    saveOrders();
+    render();
+    closeModal();
+  };
+}
+
+function attr(v){
+  if(v===undefined || v===null) return '';
+  return String(v).replace(/"/g,'&quot;');
+}
+
+/* ===================== ربط الأحداث العامة ===================== */
+document.getElementById('btnNewOrder').onclick = openNewModal;
+document.getElementById('searchBox').addEventListener('input', render);
+document.getElementById('sortSelect').addEventListener('change', render);
+document.getElementById('overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'overlay') closeModal();
+});
+
+/* تحديث دوري لوقت الانتظار والمؤشرات */
+setInterval(render, 30000);
+
+loadOrders();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
