@@ -242,9 +242,10 @@
   .field label{
     display:block; font-size:0.85rem; font-weight:700; color:var(--paper-dim); margin-bottom:7px;
   }
-  .field input, .field textarea, .field select{
-    width:100%; font-family:inherit; font-size:0.95rem; font-weight:600; color:var(--paper);
-    border:1.5px solid var(--line); border-radius:12px; padding:12px 14px;
+  .field input, .field textarea, .field select,
+  .item-row input{
+    width:100%; font-family:inherit; font-size:1rem; font-weight:600; color:var(--paper);
+    border:1.5px solid var(--line); border-radius:12px; padding:13px 14px;
     background: var(--surface-raised);
   }
   .field input::placeholder, .field textarea::placeholder{ color: var(--paper-dim); font-weight:400; }
@@ -253,13 +254,30 @@
   }
   .field textarea{ resize:vertical; min-height:68px; }
   .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .items-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
-  .item-row{ display:flex; gap:8px; }
-  .item-row input:first-child{ flex:2; }
-  .item-row input:last-child{ flex:1; }
-  .item-row button{
-    background:none; border:none; color:var(--danger); font-size:1.3rem; cursor:pointer; padding:0 8px;
+  .items-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
+  .item-row{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:8px;
+    background: var(--surface-raised);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:10px;
   }
+  .item-row .item-row-bottom{
+    display:flex; gap:8px; align-items:center;
+  }
+  .item-row input{
+    background: var(--bg);
+    min-width:0;
+  }
+  .item-row .item-row-bottom input{ flex:1; }
+  .item-row button{
+    background:none; border:1.5px solid var(--danger-pale); color:var(--danger);
+    font-size:1.1rem; cursor:pointer; padding:8px 12px; border-radius:10px;
+    flex-shrink:0; line-height:1;
+  }
+  .item-row button:hover{ background: var(--danger-pale); }
   .add-item-btn{
     background:none; border:1.5px dashed var(--line); border-radius:10px;
     padding:10px; width:100%; font-family:inherit; color:var(--paper-dim);
@@ -707,8 +725,10 @@ function renderModal(order, isNew){
       row.className = 'item-row';
       row.innerHTML = `
         <input type="text" placeholder="اسم الصنف" value="${attr(it.name)}" data-field="name" data-i="${i}">
-        <input type="number" placeholder="السعر" value="${attr(it.price)}" data-field="price" data-i="${i}">
-        <button type="button" data-remove="${i}">✕</button>
+        <div class="item-row-bottom">
+          <input type="number" placeholder="السعر (ج.م)" value="${attr(it.price)}" data-field="price" data-i="${i}">
+          <button type="button" data-remove="${i}">✕ حذف</button>
+        </div>
       `;
       itemsList.appendChild(row);
     });
@@ -809,10 +829,14 @@ setInterval(render, 30000);
 loadOrders();
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister());
   });
 }
+if ('caches' in window) {
+  caches.keys().then(names => names.forEach(name => caches.delete(name)));
+}
+
 </script>
 </body>
 </html>
